@@ -132,6 +132,10 @@ button {
     <input type="text" id="searchInput" placeholder="🔍 Buscar casa, dono ou guild..." onkeyup="filterHouses()" style="width:300px;">
 </div>
 
+<div style="text-align:center; margin-bottom:10px;">
+    <button onclick="exportData()">📦 Exportar Backup</button>
+</div>
+
 <div class="form-container">
 
     <h2>➕ Adicionar Casa</h2>
@@ -179,26 +183,59 @@ function filterHouses() {
     });
 }
 
-/* 🔧 CORREÇÃO APENAS AQUI (LINK FIXO) */
+/* 📦 EXPORT */
+function exportData() {
+    const data = localStorage.getItem('housesData');
+    const blob = new Blob([data], {type: "text/plain"});
+    const url = URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "backup-houses.txt";
+    a.click();
+}
+
+/* ❌ DELETE CASA */
+function removeHouse(btn) {
+    btn.closest('.card').remove();
+    saveHouses();
+}
+
+/* 🖼 LIGHTBOX */
+function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').style.display = 'block';
+}
+
+function closeLightbox() {
+    document.getElementById('lightbox').style.display = 'none';
+}
+
+/* 🔗 FIX DEFINITIVO DO LINK */
 function rebindDynamicEvents() {
 
     document.querySelectorAll('.gallery img').forEach(img => {
         img.onclick = () => openLightbox(img.src);
     });
 
-    document.querySelectorAll('.url-container .url-item').forEach(item => {
+    document.querySelectorAll('.url-item').forEach(item => {
 
         const btn = item.querySelector('button');
-        const url = item.getAttribute('data-url'); // 🔥 CORREÇÃO REAL
+
+        let url = item.getAttribute('data-url');
+
+        if (!url) {
+            const span = item.querySelector('span');
+            if (span) url = span.innerText;
+        }
 
         if (btn && url) {
-            btn.onclick = () => openCustomURL(url);
+            btn.onclick = () => window.open(url, '_blank');
         }
     });
 }
 
-/* resto do código inalterado */
-
+/* 🏠 ADD HOUSE */
 function addHouse() {
 
     const owner = document.getElementById('owner').value;
@@ -223,7 +260,7 @@ function addHouse() {
         <p><strong>Objetivo:</strong> ${objective}</p>
 
         <div class="gallery"></div>
-        <input type="file" accept="image/*" onchange="addImage(this)">
+        <input type="file" accept="image/*">
         <div class="url-container"></div>
 
         <button onclick="removeHouse(this)" style="background:red;margin-top:10px;">
@@ -234,7 +271,14 @@ function addHouse() {
     const gallery = houseDiv.querySelector('.gallery');
 
     for (let i = 0; i < images.length && i < 5; i++) {
-        createImage(gallery, images[i]);
+        const reader = new FileReader();
+        reader.onload = e => {
+            const img = document.createElement('img');
+            img.src = e.target.result;
+            img.onclick = () => openLightbox(img.src);
+            gallery.appendChild(img);
+        };
+        reader.readAsDataURL(images[i]);
     }
 
     const urls = document.querySelectorAll('#urlList .url-item');
@@ -250,10 +294,11 @@ function addHouse() {
 
         const span = document.createElement('span');
         span.innerText = url;
+        span.style.display = "none";
 
         const btn = document.createElement('button');
         btn.innerText = "🌐 Abrir URL";
-        btn.onclick = () => openCustomURL(url);
+        btn.onclick = () => window.open(url, '_blank');
 
         wrapper.appendChild(span);
         wrapper.appendChild(btn);
@@ -266,6 +311,7 @@ function addHouse() {
     rebindDynamicEvents();
 }
 
+/* 🔗 URL */
 function addURL() {
     const input = document.getElementById('urlInput');
     let url = input.value.trim();
@@ -279,53 +325,19 @@ function addURL() {
 
     const span = document.createElement('span');
     span.innerText = url;
+    span.style.display = "none";
 
     const btn = document.createElement('button');
     btn.innerText = "X";
-    btn.style.background = "red";
     btn.onclick = () => div.remove();
 
     div.appendChild(span);
     div.appendChild(btn);
 
     document.getElementById('urlList').appendChild(div);
-    input.value = "";
 }
 
-function createImage(gallery, file) {
-    const reader = new FileReader();
-    reader.onload = e => {
-        const wrapper = document.createElement('div');
-        wrapper.classList.add('img-wrapper');
-
-        const img = document.createElement('img');
-        img.src = e.target.result;
-
-        const btn = document.createElement('button');
-        btn.innerText = "X";
-        btn.classList.add('remove-btn');
-        btn.onclick = () => wrapper.remove();
-
-        wrapper.appendChild(img);
-        wrapper.appendChild(btn);
-        gallery.appendChild(wrapper);
-    };
-    reader.readAsDataURL(file);
-}
-
-function openLightbox(src) {
-    document.getElementById('lightbox-img').src = src;
-    document.getElementById('lightbox').style.display = 'block';
-}
-
-function closeLightbox() {
-    document.getElementById('lightbox').style.display = 'none';
-}
-
-function openCustomURL(url) {
-    window.open(url, '_blank');
-}
-
+/* 💾 SAVE */
 function saveHouses() {
     localStorage.setItem('housesData', document.getElementById('houses').innerHTML);
 }
