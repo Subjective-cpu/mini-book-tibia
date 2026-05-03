@@ -2,7 +2,17 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Mini Book de Casas - Tibia</title>
+
+<h1 style="text-align:center; font-size:32px; font-weight:bold; color:#222; text-shadow: 2px 2px 4px rgba(0,0,0,0.2);">
+📘 Mini Book de Casas - Tibia | <span style="color:#4CAF50;">Subjectivefive - Paulistinha Ot - Dominium</span>
+</h1>
+
+<div style="width:100vw; margin-left:calc(-50vw + 50%); margin-bottom:20px;">
+    <img src="https://static.tibia.com/images/news/banner_podium_goldenborder.jpg"
+         style="width:100%; display:block;">
+</div>
+
+
 
 <style>
 body {
@@ -108,14 +118,20 @@ button {
 }
 
 #fixedGif {
-    position: fixed;
-    top: 10px;
-    left: 10px;
-    z-index: 1000;
+    position: fixed !important;
+    bottom: 10px !important;
+    right: 10px !important;
+    top: auto !important;
+    left: auto !important;
+    z-index: 9999 !important;
 }
 
 #fixedGif img {
-    width: 180px;
+    width: 130px;
+}
+
+.form-container {
+    display: none;
 }
 </style>
 </head>
@@ -126,7 +142,12 @@ button {
     <img src="https://www.tibiawiki.com.br/images/4/49/Outfit_Jester_Male_Addon_3.gif">
 </div>
 
-<h1>📘 Mini Book de Casas</h1>
+
+
+<div style="text-align:center; margin-bottom:10px;">
+    <button onclick="toggleForm()">📂 Expandir / Retrair Formulário</button>
+    <button onclick="setVisitorMode()" style="background:#777;">👁️ Modo Visitante</button>
+</div>
 
 <div style="text-align:center; margin-bottom:20px;">
     <input type="text" id="searchInput" placeholder="🔍 Buscar casa, dono ou guild..." onkeyup="filterHouses()" style="width:300px;">
@@ -136,7 +157,7 @@ button {
     <button onclick="exportData()">📦 Exportar Backup</button>
 </div>
 
-<div class="form-container">
+<div class="form-container" id="formContainer">
 
     <h2>➕ Adicionar Casa</h2>
 
@@ -173,70 +194,49 @@ button {
 
 <script>
 
-function filterHouses() {
-    const input = document.getElementById('searchInput').value.toLowerCase();
-    const houses = document.querySelectorAll('#houses .card');
+const PASSWORD = String.raw`aEo4R~m9)7}9)l%OqXunY5oPB.+|7Wc@b/66y5I8,xzei<r"~]`;
 
-    houses.forEach(house => {
-        const text = house.innerText.toLowerCase();
-        house.style.display = text.includes(input) ? '' : 'none';
-    });
+let isAdmin = false;
+
+window.onload = () => {
+    loadHouses();
+};
+
+function toggleForm() {
+    const input = prompt("Digite a senha de administrador:");
+
+    if (input === PASSWORD) {
+        isAdmin = true;
+        document.getElementById("formContainer").style.display =
+            document.getElementById("formContainer").style.display === "block" ? "none" : "block";
+    } else {
+        alert("Modo visitante: apenas visualização");
+        isAdmin = false;
+        document.getElementById("formContainer").style.display = "none";
+    }
 }
 
-/* 📦 EXPORT */
-function exportData() {
-    const data = localStorage.getItem('housesData');
-    const blob = new Blob([data], {type: "text/plain"});
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "backup-houses.txt";
-    a.click();
+/* 🆕 NOVA FUNÇÃO */
+function setVisitorMode() {
+    isAdmin = false;
+    document.getElementById("formContainer").style.display = "none";
+    alert("Modo visitante ativado");
 }
 
-/* ❌ DELETE CASA */
 function removeHouse(btn) {
+    if (!isAdmin) {
+        alert("Você não tem permissão para excluir casas.");
+        return;
+    }
     btn.closest('.card').remove();
     saveHouses();
 }
 
-/* 🖼 LIGHTBOX */
-function openLightbox(src) {
-    document.getElementById('lightbox-img').src = src;
-    document.getElementById('lightbox').style.display = 'block';
-}
-
-function closeLightbox() {
-    document.getElementById('lightbox').style.display = 'none';
-}
-
-/* 🔗 FIX DEFINITIVO DO LINK */
-function rebindDynamicEvents() {
-
-    document.querySelectorAll('.gallery img').forEach(img => {
-        img.onclick = () => openLightbox(img.src);
-    });
-
-    document.querySelectorAll('.url-item').forEach(item => {
-
-        const btn = item.querySelector('button');
-
-        let url = item.getAttribute('data-url');
-
-        if (!url) {
-            const span = item.querySelector('span');
-            if (span) url = span.innerText;
-        }
-
-        if (btn && url) {
-            btn.onclick = () => window.open(url, '_blank');
-        }
-    });
-}
-
-/* 🏠 ADD HOUSE */
 function addHouse() {
+    if (!isAdmin) {
+        alert("Você não tem permissão para adicionar casas.");
+        return;
+    }
 
     const owner = document.getElementById('owner').value;
     const guild = document.getElementById('guild').value;
@@ -260,8 +260,6 @@ function addHouse() {
         <p><strong>Objetivo:</strong> ${objective}</p>
 
         <div class="gallery"></div>
-        <input type="file" accept="image/*">
-        <div class="url-container"></div>
 
         <button onclick="removeHouse(this)" style="background:red;margin-top:10px;">
             ❌ Excluir Casa
@@ -269,75 +267,91 @@ function addHouse() {
     `;
 
     const gallery = houseDiv.querySelector('.gallery');
+    document.getElementById('houses').appendChild(houseDiv);
 
-    for (let i = 0; i < images.length && i < 5; i++) {
+    let loadedImages = 0;
+    const totalImages = Math.min(images.length, 5);
+
+    if (totalImages === 0) {
+        rebindDynamicEvents();
+        saveHouses();
+        return;
+    }
+
+    for (let i = 0; i < totalImages; i++) {
         const reader = new FileReader();
+
         reader.onload = e => {
             const img = document.createElement('img');
             img.src = e.target.result;
             img.onclick = () => openLightbox(img.src);
             gallery.appendChild(img);
+
+            loadedImages++;
+
+            // 🔥 só salva quando TODAS carregarem
+            if (loadedImages === totalImages) {
+                rebindDynamicEvents();
+                saveHouses();
+            }
         };
+
         reader.readAsDataURL(images[i]);
     }
+}
 
-    const urls = document.querySelectorAll('#urlList .url-item');
-    const urlContainer = houseDiv.querySelector('.url-container');
+function filterHouses() {
+    const input = document.getElementById('searchInput').value.toLowerCase();
+    const houses = document.querySelectorAll('#houses .card');
 
-    urls.forEach(item => {
+    houses.forEach(house => {
+        const text = house.innerText.toLowerCase();
+        house.style.display = text.includes(input) ? '' : 'none';
+    });
+}
 
-        const url = item.getAttribute('data-url');
+function exportData() {
+    const data = localStorage.getItem('housesData');
+    const blob = new Blob([data], {type: "text/plain"});
+    const url = URL.createObjectURL(blob);
 
-        const wrapper = document.createElement('div');
-        wrapper.classList.add('url-item');
-        wrapper.setAttribute('data-url', url);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "backup-houses.txt";
+    a.click();
+}
 
-        const span = document.createElement('span');
-        span.innerText = url;
-        span.style.display = "none";
+function openLightbox(src) {
+    document.getElementById('lightbox-img').src = src;
+    document.getElementById('lightbox').style.display = 'block';
+}
 
-        const btn = document.createElement('button');
-        btn.innerText = "🌐 Abrir URL";
-        btn.onclick = () => window.open(url, '_blank');
+function closeLightbox() {
+    document.getElementById('lightbox').style.display = 'none';
+}
 
-        wrapper.appendChild(span);
-        wrapper.appendChild(btn);
-        urlContainer.appendChild(wrapper);
+function rebindDynamicEvents() {
+
+    // imagens (lightbox)
+    document.querySelectorAll('.gallery img').forEach(img => {
+        img.onclick = () => openLightbox(img.src);
     });
 
-    document.getElementById('urlList').innerHTML = "";
-    document.getElementById('houses').appendChild(houseDiv);
+    // URLs (ESSENCIAL)
+    document.querySelectorAll('.url-item').forEach(item => {
+        const btns = item.querySelectorAll('button');
 
-    rebindDynamicEvents();
+        if (btns.length > 0) {
+            const openBtn = btns[0];
+            const url = item.getAttribute('data-url') || item.querySelector('span')?.innerText;
+
+            if (url) {
+                openBtn.onclick = () => window.open(url, '_blank');
+            }
+        }
+    });
 }
 
-/* 🔗 URL */
-function addURL() {
-    const input = document.getElementById('urlInput');
-    let url = input.value.trim();
-    if (!url) return;
-
-    if (!url.startsWith('http')) url = 'https://' + url;
-
-    const div = document.createElement('div');
-    div.classList.add('url-item');
-    div.setAttribute('data-url', url);
-
-    const span = document.createElement('span');
-    span.innerText = url;
-    span.style.display = "none";
-
-    const btn = document.createElement('button');
-    btn.innerText = "X";
-    btn.onclick = () => div.remove();
-
-    div.appendChild(span);
-    div.appendChild(btn);
-
-    document.getElementById('urlList').appendChild(div);
-}
-
-/* 💾 SAVE */
 function saveHouses() {
     localStorage.setItem('housesData', document.getElementById('houses').innerHTML);
 }
@@ -346,12 +360,9 @@ function loadHouses() {
     const data = localStorage.getItem('housesData');
     if (data) {
         document.getElementById('houses').innerHTML = data;
-        rebindDynamicEvents();
+        rebindDynamicEvents(); // ESSENCIAL
     }
 }
-
-window.onload = loadHouses;
-
 const observer = new MutationObserver(saveHouses);
 observer.observe(document.getElementById('houses'), {
     childList: true,
